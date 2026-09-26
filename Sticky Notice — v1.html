@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sticky Notice — v1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F1E4; --ink:#2B2620; --ink-soft:#6B6355;
+    --yellow:#FFD866; --pink:#FF9EB3; --teal:#7FD1C4;
+    --line:rgba(43,38,32,.12); --shadow:rgba(43,38,32,.22);
+    color-scheme: light;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    min-height:100%;
+  }
+  .wrap{max-width:1040px;margin:0 auto;padding:32px 20px 64px;}
+  header{margin-bottom:28px;}
+  header h1{
+    font-family:'Caveat',cursive; font-size:52px; font-weight:700;
+    margin:0 0 4px; line-height:1;
+  }
+  header p{margin:0; color:var(--ink-soft); font-size:15px; max-width:56ch;}
+
+  .layout{display:grid; grid-template-columns: 1.3fr 1fr; gap:22px;}
+  @media (max-width:760px){ .layout{grid-template-columns:1fr;} }
+
+  /* mock client site */
+  .site{
+    position:relative; background:#fff; border:1px solid var(--line);
+    border-radius:6px; min-height:420px; overflow:hidden;
+    box-shadow:0 2px 0 var(--line);
+  }
+  .site-chrome{
+    display:flex; gap:6px; align-items:center; padding:10px 12px;
+    border-bottom:1px solid var(--line); background:#FAF8F2;
+  }
+  .site-chrome span{width:9px;height:9px;border-radius:50%;background:var(--line);}
+  .site-body{padding:26px 22px; color:#3a352c;}
+  .site-body h2{font-size:19px; margin:0 0 8px;}
+  .site-body p{font-size:14px; line-height:1.6; color:#6b6355; max-width:44ch;}
+  .site-body .fake-btn{
+    display:inline-block; margin-top:14px; padding:9px 16px; font-size:13px;
+    background:#3a352c; color:#fff; border-radius:4px;
+  }
+
+  .stage{
+    position:absolute; right:16px; bottom:16px; width:190px; height:260px;
+    pointer-events:none;
+  }
+  .note{
+    position:absolute; width:170px; min-height:110px; padding:14px 14px 16px;
+    border-radius:2px; font-family:'Caveat',cursive; font-size:19px; line-height:1.25;
+    box-shadow:0 6px 14px var(--shadow), 0 1px 0 rgba(255,255,255,.4) inset;
+    cursor:grab; touch-action:none; pointer-events:auto;
+    transition:transform .18s ease, opacity .18s ease;
+    user-select:none;
+  }
+  .note::after{
+    content:""; position:absolute; top:-8px; left:50%; transform:translateX(-50%) rotate(-3deg);
+    width:34px; height:14px; background:rgba(255,255,255,.55); border:1px solid rgba(0,0,0,.06);
+  }
+  .note .txt{display:block; word-wrap:break-word;}
+  .note .peel-hint{
+    display:block; font-family:'Inter',sans-serif; font-size:10px; color:rgba(43,38,32,.45);
+    margin-top:8px;
+  }
+  .note.dragging{cursor:grabbing; transition:none;}
+  .note.gone{opacity:0; transform:translateY(-140px) rotate(-18deg) !important;}
+
+  /* builder panel */
+  .panel{
+    background:#fff; border:1px solid var(--line); border-radius:6px; padding:18px;
+  }
+  .panel h3{margin:0 0 4px; font-size:15px;}
+  .panel .sub{font-size:12.5px; color:var(--ink-soft); margin:0 0 14px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block; font-size:12px; color:var(--ink-soft); margin-bottom:5px;}
+  textarea, select{
+    width:100%; font-family:'Inter',sans-serif; font-size:14px; padding:9px 10px;
+    border:1px solid var(--line); border-radius:4px; background:#FDFCF9; color:var(--ink);
+    resize:vertical;
+  }
+  textarea{min-height:64px;}
+  .swatches{display:flex; gap:8px; margin-top:2px;}
+  .swatch{width:26px;height:26px;border-radius:50%; border:2px solid transparent; cursor:pointer;}
+  .swatch.active{border-color:var(--ink);}
+  .row-btns{display:flex; gap:8px; margin-top:4px;}
+  button.primary{
+    flex:1; background:var(--ink); color:#fff; border:none; border-radius:4px;
+    padding:10px 12px; font-size:13.5px; font-weight:600; cursor:pointer;
+  }
+  button.ghost{
+    background:transparent; border:1px solid var(--line); border-radius:4px;
+    padding:10px 12px; font-size:13.5px; cursor:pointer; color:var(--ink);
+  }
+  .divider{height:1px; background:var(--line); margin:18px 0;}
+
+  .note-list{display:flex; flex-direction:column; gap:8px; margin-bottom:6px;}
+  .note-row{
+    display:flex; align-items:center; gap:8px; font-size:13px;
+    border:1px solid var(--line); border-radius:4px; padding:7px 9px;
+  }
+  .dot{width:12px;height:12px;border-radius:50%; flex-shrink:0;}
+  .note-row span.t{flex:1; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .note-row button{
+    background:none; border:none; color:var(--ink-soft); font-size:12px; cursor:pointer; padding:2px 4px;
+  }
+  .note-row button:hover{color:var(--ink);}
+
+  .embed-box{
+    background:#22201B; color:#E8E2D3; font-family:ui-monospace,Menlo,monospace;
+    font-size:11.5px; line-height:1.6; border-radius:4px; padding:12px;
+    overflow-x:auto; white-space:pre; margin-top:8px;
+  }
+  .note-hint{font-size:12px; color:var(--ink-soft); margin-top:10px; line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Sticky Notice</h1>
+    <p>A notice widget that peels instead of closes. Visitors drag a note up and off — no X button, no banner. v1: no dashboard, just an embed snippet.</p>
+  </header>
+
+  <div class="layout">
+    <div class="site">
+      <div class="site-chrome"><span></span><span></span><span></span></div>
+      <div class="site-body">
+        <h2>Mama Njeri's Fabrics</h2>
+        <p>Ankara prints, kitenge and custom tailoring. Nairobi CBD, delivery countrywide.</p>
+        <span class="fake-btn">Shop now</span>
+      </div>
+      <div class="stage" id="stage"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Add a note</h3>
+      <p class="sub">This stands in for the v1 dashboard — one form, no login.</p>
+      <div class="field">
+        <label>Message</label>
+        <textarea id="msgInput" maxlength="90">Closed Oct 3rd for stock-taking. Back Oct 4th!</textarea>
+      </div>
+      <div class="field">
+        <label>Colour</label>
+        <div class="swatches" id="swatches">
+          <div class="swatch active" data-c="var(--yellow)" style="background:var(--yellow)"></div>
+          <div class="swatch" data-c="var(--pink)" style="background:var(--pink)"></div>
+          <div class="swatch" data-c="var(--teal)" style="background:var(--teal)"></div>
+        </div>
+      </div>
+      <div class="row-btns">
+        <button class="primary" id="addBtn">Pin note</button>
+        <button class="ghost" id="resetBtn">Reset board</button>
+      </div>
+
+      <div class="divider"></div>
+      <h3>On the board (<span id="countLbl">0</span>)</h3>
+      <div class="note-list" id="noteList"></div>
+      <p class="note-hint">Drag any note upward on the left to peel it off — dismissal is remembered per visitor, so it won't reappear for them.</p>
+
+      <div class="divider"></div>
+      <h3>Send to WhatsApp</h3>
+      <p class="sub">No hosted image yet in v1, so this opens WhatsApp with the note text pre-filled — good enough for a quick broadcast or Status caption.</p>
+      <button class="ghost" id="waBtn" style="width:100%">Open in WhatsApp →</button>
+
+      <div class="divider"></div>
+      <h3>Embed snippet</h3>
+      <p class="sub">What a client pastes into their own site — this whole demo's board logic, condensed.</p>
+      <div class="embed-box">&lt;script src="https://stickynotice.app/embed.js"
+        data-site="mama-njeri-fabrics"&gt;&lt;/script&gt;</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = ['var(--yellow)','var(--pink)','var(--teal)'];
+let activeColor = COLORS[0];
+let notes = [
+  {id:1, text:"Closed Oct 3rd for stock-taking. Back Oct 4th!", color:'var(--yellow)'},
+  {id:2, text:"New till number: 174 225", color:'var(--pink)'}
+];
+let nextId = 3;
+const DISMISS_KEY = 'sn_dismissed_demo';
+
+function getDismissed(){
+  try{ return JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]'); }catch(e){ return []; }
+}
+function dismiss(id){
+  const d = getDismissed(); d.push(id);
+  try{ localStorage.setItem(DISMISS_KEY, JSON.stringify(d)); }catch(e){}
+}
+function clearDismissed(){
+  try{ localStorage.removeItem(DISMISS_KEY); }catch(e){}
+}
+
+const stage = document.getElementById('stage');
+const listEl = document.getElementById('noteList');
+const countLbl = document.getElementById('countLbl');
+
+function render(){
+  stage.innerHTML = '';
+  listEl.innerHTML = '';
+  const dismissed = getDismissed();
+  const visible = notes.filter(n => !dismissed.includes(n.id));
+  countLbl.textContent = notes.length;
+
+  visible.forEach((n, i) => {
+    const el = document.createElement('div');
+    el.className = 'note';
+    el.style.background = n.color;
+    el.style.right = (8 + i*10) + 'px';
+    el.style.bottom = (8 + i*14) + 'px';
+    el.style.transform = 'rotate(' + ((i%2?1:-1)*(2+i)) + 'deg)';
+    el.style.zIndex = 10 - i;
+    el.innerHTML = '<span class="txt">'+escapeHtml(n.text)+'</span><span class="peel-hint">drag ↑ to peel off</span>';
+    attachDrag(el, n.id, el.style.transform);
+    stage.appendChild(el);
+  });
+
+  notes.forEach(n => {
+    const row = document.createElement('div');
+    row.className = 'note-row';
+    const isDismissed = dismissed.includes(n.id);
+    row.innerHTML = '<span class="dot" style="background:'+n.color+'"></span>'+
+      '<span class="t">'+escapeHtml(n.text)+(isDismissed?' (peeled)':'')+'</span>'+
+      '<button data-del="'+n.id+'">remove</button>';
+    listEl.appendChild(row);
+  });
+
+  listEl.querySelectorAll('[data-del]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const id = Number(b.getAttribute('data-del'));
+      notes = notes.filter(n=>n.id!==id);
+      render();
+    });
+  });
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function attachDrag(el, id, baseTransform){
+  let startY=0, dy=0, dragging=false;
+  function down(e){
+    dragging = true; el.classList.add('dragging');
+    startY = (e.touches? e.touches[0].clientY : e.clientY);
+  }
+  function move(e){
+    if(!dragging) return;
+    const y = (e.touches? e.touches[0].clientY : e.clientY);
+    dy = startY - y;
+    const clamped = Math.max(0, dy);
+    el.style.transform = baseTransform + ' translateY(-'+clamped+'px)';
+    el.style.opacity = String(Math.max(0, 1 - clamped/120));
+  }
+  function up(){
+    if(!dragging) return;
+    dragging = false; el.classList.remove('dragging');
+    if(dy > 70){
+      el.classList.add('gone');
+      dismiss(id);
+      setTimeout(render, 180);
+    } else {
+      el.style.transform = baseTransform;
+      el.style.opacity = '1';
+    }
+    dy = 0;
+  }
+  el.addEventListener('mousedown', down);
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+  el.addEventListener('touchstart', down, {passive:true});
+  window.addEventListener('touchmove', move, {passive:true});
+  window.addEventListener('touchend', up);
+}
+
+document.querySelectorAll('.swatch').forEach(s=>{
+  s.addEventListener('click', ()=>{
+    document.querySelectorAll('.swatch').forEach(x=>x.classList.remove('active'));
+    s.classList.add('active');
+    activeColor = s.getAttribute('data-c');
+  });
+});
+
+document.getElementById('addBtn').addEventListener('click', ()=>{
+  const val = document.getElementById('msgInput').value.trim();
+  if(!val) return;
+  notes.push({id:nextId++, text:val, color:activeColor});
+  render();
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  clearDismissed();
+  render();
+});
+
+document.getElementById('waBtn').addEventListener('click', ()=>{
+  const dismissed = getDismissed();
+  const first = notes.find(n=>!dismissed.includes(n.id)) || notes[0];
+  const text = encodeURIComponent((first? first.text : 'Notice') + '\n\n— sent via Sticky Notice');
+  window.open('https://wa.me/?text='+text, '_blank');
+});
+
+render();
+</script>
+</body>
+</html>
